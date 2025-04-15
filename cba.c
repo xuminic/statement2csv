@@ -6,8 +6,6 @@
 
 #include "statement.h"
 
-#define TRANSGAP		"  "
-
 #define STAT_CBA_STATEMENT	(STAT_MORE + 1)
 #define STAT_CBA_PERIOD		(STAT_MORE + 2)
 #define STAT_CBA_DATE		(STAT_MORE + 3)
@@ -86,12 +84,12 @@ static int cba_state_machine_layout(int state, char *s, Transaction *bsm) {
 		log("%d<<< %s\n", state, s);
 		s = p;
 		if (strrcmp(s, " CR")) {	/* waiting for more lines */
-			cutcat(bsm->transaction, s, sizeof(bsm->transaction));
+			morphcat(bsm->transaction, s, sizeof(bsm->transaction));
 			return STAT_CBA_MORE;
 		}
 		if ((p = strstr(s, TRANSGAP)) != NULL) {
 			*p++ = 0;
-			cutcat(bsm->transaction, s, sizeof(bsm->transaction));
+			morphcat(bsm->transaction, s, sizeof(bsm->transaction));
 			s = bare(p);
 		}
 		return cba_state_machine_layout(STAT_CBA_BALANCE, s, bsm);
@@ -105,7 +103,7 @@ static int cba_state_machine_layout(int state, char *s, Transaction *bsm) {
 		if (strrcmp(s, " CR")) {	/* waiting for more lines */
 			if (*s) {
 				safecat(bsm->transaction, " ", sizeof(bsm->transaction));
-				cutcat(bsm->transaction, s, sizeof(bsm->transaction));
+				morphcat(bsm->transaction, s, sizeof(bsm->transaction));
 			}
 			break;
 		}
@@ -113,7 +111,7 @@ static int cba_state_machine_layout(int state, char *s, Transaction *bsm) {
 			*p++ = 0;
 			if (*s) {
 				safecat(bsm->transaction, " ", sizeof(bsm->transaction));
-				cutcat(bsm->transaction, s, sizeof(bsm->transaction));
+				morphcat(bsm->transaction, s, sizeof(bsm->transaction));
 			}
 			s = bare(p);
 		}
@@ -192,7 +190,7 @@ static int cba_state_machine_default(int state, char *s, Transaction *bsm) {
 		if ((s = take_time(s, &bsm->tm_acct)) != NULL) {
 			log("%d<<< %s\n", state, s);
 			/* Transaction begin:  */
-			cutcat(bsm->transaction, s, sizeof(bsm->transaction));
+			morphcat(bsm->transaction, s, sizeof(bsm->transaction));
 			return STAT_CBA_MORE;
 		}
 		break;	/* ignore others */
@@ -208,7 +206,7 @@ static int cba_state_machine_default(int state, char *s, Transaction *bsm) {
 		}
 		/* read a continues line */
 		safecat(bsm->transaction, " ", sizeof(bsm->transaction));
-		cutcat(bsm->transaction, s, sizeof(bsm->transaction));
+		morphcat(bsm->transaction, s, sizeof(bsm->transaction));
 		break;
 
 	case STAT_CBA_DEBIT:	/* waiting for debit data */

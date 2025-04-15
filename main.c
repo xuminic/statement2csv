@@ -1,4 +1,7 @@
 
+/* usage:
+ * for i in CBA*.pdf; do pdftotext -nodiag -nopgbrk -layout $i - | statement2csv -n >> cba.csv; done
+ */
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,15 +9,17 @@
 
 #include "statement.h"
 
+
 static	FILE	*g_fout;
 
 static	smlookup_t	g_smlist[] = {
 	cba_main,
+	nab_main,
 	NULL
 };
 
 static	char	*g_control[] = {
-	"DateAcc,DateTra,Transaction,Debit,Credit,Balance",
+	"DateAcc,DateTra,Transaction,AccNo,Debit,Credit,Balance",
 	"DateAcc,Transaction,Debit",
 	"DateAcc,Transaction,Credit"
 };
@@ -147,6 +152,7 @@ static int transaction(FILE *fin) {
 		}
 
 		s = bare(chop(buf));	/* clean up the head and tail */
+		//printf("+++: %s\n", s);
 		state = state_machine(state, s, &bsm);
 		if (state == STAT_EXIT) {
 			break;
@@ -188,16 +194,29 @@ static char *cmdl_set_mode(char *s) {
 }
 
 static int help_tools(int argc, char **argv) {
-        //if (!strcmp(*argv,  "--help-strtoms")) {
-        //        test_str_to_ms();
-	char	buf[64];
+	
+	struct	tm	tmbuf;
+	int	i;
+	char	*p, buf[32];
+	char	*time_sample[] = { "31 Mar ABC", "31 Mar 2025", "10/3/25", 
+		"10/03/2025abc", NULL };
 
-	strcpy(buf, "Hello ");
-	safecat(buf, "Transaction Summary during 7th October 2021 to 30th November 2021", sizeof(buf));
-	puts(buf);
-	strcpy(buf, "Hello ");
-	cutcat(buf, "s        0           0        0     0       $3.00          $0.00", sizeof(buf));
-	puts(buf);
+	memset(&tmbuf, 0, sizeof(tmbuf));
+        if (!strcmp(*argv,  "--help-unit")) {
+		strcpy(buf, "5/32: ");
+		safecat(buf, "0123456789012345678901234567890123456789", sizeof(buf));
+		puts(buf);
+		strcpy(buf, "CAT: ");
+		morphcat(buf, "  s      ,           0        0     0       $3.00          $0.00", sizeof(buf));
+		puts(buf);
+	} else if (!strcmp(*argv,  "--help-time")) {
+		for (i = 0; time_sample[i]; i++) {
+			p = take_time(time_sample[i], &tmbuf);
+			printf("leftover: %s\n", p);
+			format_time(&tmbuf, buf, sizeof(buf));
+			printf("time: %s\n", buf);
+		}	
+	}
 	return 0;
 }
 
@@ -207,7 +226,8 @@ static int help_tools(int argc, char **argv) {
  * the year is optional. It would be deducted from elsewhere.
  * It will return NULL if no proper timestamp was found.
  * Otherwise it returns the point to the next byte after the timestamp.
- * For example with "31 Mar ABC", it will point to " ABC". 
+ * For example with "31 Mar ABC", it will point to "ABC". 
+ * Also except format like 10/3/25 or 10/03/2025
  * */
 char *take_time(char *s, struct tm *date) {
 
@@ -218,6 +238,10 @@ char *take_time(char *s, struct tm *date) {
 
 	char	*endp;
 	int	n;
+
+	if (!isdigit(*s)) {
+		return NULL;
+	}
 
 	/* check if the begining of the line is a day number (1-31) */
 	n = (int)strtol(s, &endp, 10);
@@ -231,33 +255,47 @@ char *take_time(char *s, struct tm *date) {
 		date->tm_mday = n;
 	}
 
-	/* skip whitespaces */
-	s = bare(endp);
+	/* skip whitespaces or skip '/' or skip '-' */
+	s = strip(endp, TIMESEP);
 
 	/* check the month field */
-	for (n = 0; n < sizeof(cale)/sizeof(char*); n++) {
-		if (!StrNCmp(s, cale[n])) {
-			if (date) {
-				date->tm_mon = n;
+	if (isdigit(*s)) {
+		n = (int)strtol(s, &endp, 10) - 1;
+	} else {
+		for (n = 0; n < sizeof(cale)/sizeof(char*); n++) {
+			if (!StrCACmp(s, cale[n])) {
+				endp = hit(s, TIMESEP);
+				break;
 			}
-			break;
 		}
 	}
-	if (n > 11) {
+	if ((n < 0) || (n > 11)) {
 		return NULL;	/* not found month */
 	}
+	if (date) {
+		date->tm_mon = n;
+	}
 
-	/* skip the string of month */
-	s = skip(s);
+	/* month should've been skipped; the rest part may or may not be the 
+	 * year number. If it's not the year number, the address should be
+	 * returned for further process */
+	s = strip(endp, TIMESEP);
+	if (!isdigit(*s)) {
+		return endp;
+	}
 
-	n = (int)strtol(bare(s), &endp, 10);
-	if ((n < 1900) || (n > 3000)) {	/* out of rang of years */
-		return s;	/* where is the end of string of month */
+	n = (int)strtol(s, &s, 10);
+	if (n < 70) {	/* should be simple form like 25 = 2025 */
+		n += 2000;
+	} else if (n < 100) {	/* should be simple form like 70 = 1970 */
+		n += 1900;
+	} else if ((n < 1900) || (n > 3000)) {	/* out of rang of years */
+		return endp;	/* where is the end of string of month */
 	}
 	if (date) {
 		date->tm_year = n - 1900;
 	}
-	return endp;
+	return s;
 }
 
 /* take an amount number out of a string, remove the non-number parts.
@@ -360,6 +398,8 @@ void print_transaction(Transaction *bsm) {
 			fprintf(g_fout, "%s", bsm->credit);
 		} else if (!StrCACmp(p, "Balance")) {
 			fprintf(g_fout, "%s", bsm->balance);
+		} else if (!StrCACmp(p, "AccNo")) {
+			fprintf(g_fout, "%s", bsm->acc_no);
 		}
 		if ((p = strchr(p, ',')) == NULL) {
 			break;
@@ -438,6 +478,18 @@ char *skip(char *s) {
 	return s;
 }
 
+/* skip the characters untill it is hit by characters in the "set".
+ * for example, if "set" is "$ /", then "abc$/def  " will return "/def  ".
+ * NOTE that the space in "set" means not only a space but a whitespace.
+ * the whitespace are: space, form-feed ('\f'), new‐line ('\n'), 
+ * carriage return ('\r'), horizontal tab ('\t'), and vertical tab ('\v').
+ */
+char *hit(char *s, char *set) {
+	if (!set) return skip(s);
+	while (*s && !InSet(set, *s)) s++;
+	return s;
+}
+
 /* unlike bare(), chop() removes whitespaces from the tail of the string.
  * for example, "  abc  def  \n" will be chopped to "  abc  def".
  * head and tail whitespace can be all removed by bare(chop(s))
@@ -454,30 +506,34 @@ char *chop(char *s)  {
 char *safecat(char *dst, char *src, int dlen) {
 	int	n = strlen(dst);
 
-	dlen -= n + 1;
+	dlen -= n;
 	StrNCpy(dst + n, src, dlen);
 	return dst;
 }
 
 /* similar to safecat() but it squeeze the whitespace out of the copy.
+ * meanwhile it replaces comma "," with underscore "_".
  * multiple whitespace will be combined and replaced by 1 space.
  * for example: this line
  * "s        0           0        0     0       $3.00          $0.00"
  * with be catenated to "s 0 0 0 0 $3.00 $0.00"
  */
-char *cutcat(char *dst, char *src, int dlen) {
-	char	*p, buf[256];
-	int	len;
+char *morphcat(char *dst, char *src, int dlen) {
+	char	*p;
 
-	while (src = bare(src), *src) {
-		p = skip(src);
-		len = (int)(p - src + 1);	/* one more byte for ' ' or '\0' */
-		len = len < sizeof(buf) ? len : sizeof(buf) - 1;
-		memcpy(buf, src, len);
-		buf[len] = 0;
-		safecat(dst, buf, dlen);
-		src = p;
+	p = dst + strlen(dst);
+	dlen -= strlen(dst) + 1;
+	while (*src && dlen) {
+		if (isspace(*src)) {
+			*p++ = ' '; src = bare(src);
+		} else if (*src == ',') {
+			*p++ = '_'; src++;
+		} else {
+			*p++ = *src++;
+		}
+		dlen--;
 	}
+	*p++ = 0;
 	return dst;
 }
 
