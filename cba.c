@@ -76,13 +76,13 @@ static int cba_state_machine_layout(int state, char *s, Transaction *bsm) {
 		break;
 
 	case STAT_BEGIN:	/* waiting for Transaction begin */
-		if ((p = take_time(s, &bsm->tm_acct)) == NULL) {
+		if ((s = take_time(s, &bsm->tm_acct)) == NULL) {
 			break;
 		}
 
 		/* Transaction begin: need more description or received all */
+		s = bare(s);
 		log("%d<<< %s\n", state, s);
-		s = p;
 		if (strrcmp(s, " CR")) {	/* waiting for more lines */
 			morphcat(bsm->transaction, s, sizeof(bsm->transaction));
 			return STAT_CBA_MORE;

@@ -6,6 +6,7 @@ PDF bank statements and converts them to CSV format for easy import into MySQL.
 Currently tested with statements issued by
 - Commonwealth Bank of Australia
 - National Australia Bank
+
 Feel free to send other statements if you'd like support for additional formats.
 
 
