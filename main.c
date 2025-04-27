@@ -42,9 +42,11 @@ OPTION:\n\
 \n\
 Example:\n\
 pdftotext -nodiag -nopgbrk -layout S20250331.pdf - | statement2csv\n\
+or for batching convert:\n\
+for i in CBA*.pdf; do pdftotext -nodiag -nopgbrk -layout $i - | statement2csv -n >> cba.csv; done\n\
 ";
 
-static	char    *statement2csv_version = "statement2csv 0.1.0 \
+static	char    *statement2csv_version = "statement2csv 0.1.1 \
 Copyright (C) 2009-2025  \"Andy Xuming\" <xuming@sourceforge.net>\n\
 This program comes with ABSOLUTELY NO WARRANTY.\n\
 This is free software, and you are welcome to redistribute it under certain\n\
@@ -58,6 +60,7 @@ conditions. For details see see `COPYING'.\n";
         }\
 }
 
+static smachine_t find_state_machine(FILE *fin, char *buf, int blen);
 static int transaction(FILE *fin);
 static char *cmdl_set_mode(char *s);
 static int help_tools(int argc, char **argv);
@@ -124,6 +127,21 @@ int main(int argc, char **argv)
 }
 
 
+static smachine_t find_state_machine(FILE *fin, char *buf, int blen) {
+	smachine_t	state_machine = NULL;
+	int		i, k;
+
+	/* read magic from first 5 lines */
+	for (i = 0; (i < 5) && fgets(buf, blen, fin); i++) {
+		for (k = 0; g_smlist[k]; k++) {
+			if ((state_machine = g_smlist[k](buf)) != NULL) {
+				return state_machine;
+			}
+		}
+	}
+	return NULL;
+}
+
 static int transaction(FILE *fin) {
 
 	Transaction	bsm;
@@ -131,12 +149,7 @@ static int transaction(FILE *fin) {
 	char		*s, buf[2048];
 	int		n, state;
 
-	for (state = 0; g_smlist[state]; state++) {
-		if ((state_machine = g_smlist[state](fin)) != NULL) {
-			break;
-		}
-	}
-	if (state_machine == NULL) {
+	if ((state_machine = find_state_machine(fin, buf, sizeof(buf)-1)) == NULL) {
 		fprintf(stderr, "unrecognized file format\n");
 		return -1;
 	}

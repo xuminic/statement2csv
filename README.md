@@ -49,7 +49,7 @@ make
   which can be suppressed by `-n` or `--no-title` option.
   ```
   $ pdftotext -nodiag -nopgbrk -layout S20240331.pdf - | statement2csv -n
-  2024-1-1,, OPENING BALANCE,,,,
+  2024-1-1,,OPENING BALANCE,,,,
   ...
   ```
 
@@ -73,13 +73,11 @@ make
   'm' as minute, 'S' as second, and treats any other character as a separator.
   ```
   $ pdftotext -nodiag -nopgbrk -layout S20240331.pdf - | statement2csv -t 'M/D:Y' -n
-  1/1:2024,, OPENING BALANCE,,,,
+  1/1:2024,,OPENING BALANCE,,,,
   ...
   ```
   For example:
   - SQLite timestamp: `statement2csv -t Y-M-D`
   - MS Excel timestamp: `statement2csv -t D/M/Y`
 
-## Use Case
-The use case might not exist -- who would go through their bank statements anyway.
 

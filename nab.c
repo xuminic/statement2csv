@@ -97,18 +97,10 @@ static int nab_state_machine_creditcard(int state, char *s, Transaction *bsm) {
 }
 
 
-smachine_t nab_main(FILE *fin) {
-
-	char	buf[512];
-	int	i;
-
-	/* read magic from 5 lines */
-	for (i = 0; (i < 5) && fgets(buf, sizeof(buf), fin); i++) {
-		if (strstr(buf, "NAB ")) {
-			return nab_state_machine_creditcard;
-		}
+smachine_t nab_main(char *s) {
+	if (strstr(s, "NAB ")) {
+		return nab_state_machine_creditcard;
 	}
-	rewind(fin);
 	return NULL;
 }
 

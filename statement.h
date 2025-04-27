@@ -35,7 +35,7 @@ typedef	struct	{
 } Transaction;
 
 typedef int (*smachine_t)(int, char *, Transaction *);
-typedef smachine_t (*smlookup_t)(FILE *);
+typedef smachine_t (*smlookup_t)(char *);
 
 
 #define StrNCmp(s,m)	strncmp((s), (m), strlen(m))
@@ -61,10 +61,10 @@ char *safecat(char *dst, char *src, int dlen);
 char *morphcat(char *dst, char *src, int dlen);
 
 /* cba.c */
-smachine_t cba_main(FILE *fin);
+smachine_t cba_main(char *s);
 
 /* nab.c */
-smachine_t nab_main(FILE *fin);
+smachine_t nab_main(char *s);
 
 #endif	/* _STATEMENT_H_ */
 

@@ -19,21 +19,13 @@ static int cba_state_machine_layout(int state, char *s, Transaction *bsm);
 static int cba_state_machine_default(int state, char *s, Transaction *bsm);
 
 
-smachine_t cba_main(FILE *fin) {
-
-	char	buf[512];
-	int	i;
-
-	/* read magic from 5 lines */
-	for (i = 0; (i < 5) && fgets(buf, sizeof(buf), fin); i++) {
-		if (!StrNCmp(buf, "Your Statement")) {
-			return cba_state_machine_default;
-		}
-		if (!strrcmp(buf, "Your Statement\n")) {
-			return cba_state_machine_layout;
-		}
+smachine_t cba_main(char *s) {
+	if (!StrNCmp(s, "Your Statement")) {
+		return cba_state_machine_default;
 	}
-	rewind(fin);
+	if (!strrcmp(s, "Your Statement\n")) {
+		return cba_state_machine_layout;
+	}
 	return NULL;
 }
 
